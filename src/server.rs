@@ -33,7 +33,7 @@ pub struct Server(
 
             println!("requested: {:?} {}", method, path);
 
-            let response = 'res: {
+            let mut response = 'res: {
                 let Some(handlers) = self.0.get(path) else {
                     break 'res Response::NotFound()
                 };
@@ -42,7 +42,7 @@ pub struct Server(
                 };
                 handler(request)
             };
-            stream.write(response.into_bytes())?;
+            stream.write(&response.into_byte_vec())?;
             stream.flush()?
         }
         Ok(())
@@ -53,13 +53,13 @@ pub struct Server(
         path:    &'static str,
         handler: fn(Request) -> Response,
     ) -> &mut Self {
-        assert!(path.starts_with("/"));
+        // assert!(path.starts_with("/"));
         self.0
             .entry(path)
             .and_modify(|map|
-                assert_eq!(None,
-                    map.insert(Method::GET, handler),
-                "handler for `GET {}` is already resistered", path)
+                // assert_eq!(None,
+                    {map.insert(Method::GET, handler);}//,
+                // "handler for `GET {}` is already resistered", path)
             ).or_insert(
                 HashMap::from([(Method::GET, handler)])
             );
@@ -74,9 +74,9 @@ pub struct Server(
         self.0
             .entry(path)
             .and_modify(|map|
-                assert_eq!(None,
-                    map.insert(Method::POST, handler),
-                "handler for `POST {}` is already resistered", path)
+                // assert_eq!(None,
+                    {map.insert(Method::POST, handler);}//,
+                // "handler for `POST {}` is already resistered", path)
             ).or_insert(
                 HashMap::from([(Method::GET, handler)])
             );
@@ -92,24 +92,14 @@ fn parse_stream(buffer: &[u8; BUF_SIZE]) -> Result<(&str, Method, Request), Serv
             if buffer[pos]   == b'\r'  
             && buffer[pos+1] == b'\n' {
                 if pos == 0 {
-                    return Err(ServerError::IOError(
-                        std::io::Error::new(
-                            std::io::ErrorKind::Other,
-                            "HTTP request starts with '\\r'"
-                        )
-                    ))
+                    return Err(ServerError::IOerror("HTTP request starts with '\\r'".into()))
                 }
                 end_of_reqest_status = pos - 1;
                 break
             }
         }
         if end_of_reqest_status == BUF_SIZE {
-            return Err(ServerError::IOError(
-                std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    "HTTP request doesn't contain any valid request status",
-                )
-            ))
+            return Err(ServerError::IOerror("HTTP request doesn't contain any valid request status".into()))
         }
         &buffer[..=end_of_reqest_status]
     };
@@ -118,12 +108,7 @@ fn parse_stream(buffer: &[u8; BUF_SIZE]) -> Result<(&str, Method, Request), Serv
     let method = match split.next().expect("no method found in request") {
         b"GET"  => Method::GET,
         b"POST" => Method::POST,
-        _ => return Err(ServerError::IOError(
-            std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "HTTP request doesn't contain any valid method",
-            )
-        ))
+        _ => return Err(ServerError::IOerror("HTTP request doesn't contain any valid method".into()))
     };
     let path = std::str::from_utf8(
         split.next().expect("no request path found in request")
