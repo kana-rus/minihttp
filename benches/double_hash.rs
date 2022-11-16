@@ -39,7 +39,7 @@ fn sample_8() {
     println!("Hello, world! -- from 8")
 }
 
-const cases: [(Method, &str); 10] = [
+const CASES: [(Method, &str); 10] = [
     (Method::CONNECT, "/"),
     (Method::DELETE, "/"),
     (Method::GET, "path1"),
@@ -53,80 +53,96 @@ const cases: [(Method, &str); 10] = [
 ];
 
 
-#[bench]
+#[bench]  // 8,852 ns/iter (+/- 114); 2022-11-16
 fn double_hash_with_tupple(b: &mut Bencher) {
     b.iter(|| {
-        let map = HashMap::from([
-            ((Method::GET,     "/"), sample_1 as fn()),
-            ((Method::POST,    "/"), sample_2 as fn()),
-            ((Method::CONNECT, "/"), sample_3 as fn()),
-            ((Method::GET,     "/path1"), sample_4 as fn()),
-            ((Method::POST,    "/path1"), sample_5 as fn()),
-            ((Method::CONNECT, "/path1"), sample_6 as fn()),
-            ((Method::DELETE,  "/path1"), sample_7 as fn()),
-            ((Method::GET,     "/path2"),     sample_4 as fn()),
-            ((Method::POST,    "/path2"),    sample_5 as fn()),
-            ((Method::CONNECT,  "/path2"), sample_6 as fn()),
-            ((Method::DELETE,     "/path2"),  sample_7 as fn()),
-            ((Method::PATCH,     "/path2"),   sample_8 as fn()),
-        ]);
-    })
+        for _ in 0..10 {
+            let map = HashMap::from([
+                ((Method::GET,     "/"     ), sample_1 as fn()),
+                ((Method::POST,    "/"     ), sample_2 as fn()),
+                ((Method::CONNECT, "/"     ), sample_3 as fn()),
+                ((Method::GET,     "/path1"), sample_4 as fn()),
+                ((Method::POST,    "/path1"), sample_5 as fn()),
+                ((Method::CONNECT, "/path1"), sample_6 as fn()),
+                ((Method::DELETE,  "/path1"), sample_7 as fn()),
+                ((Method::GET,     "/path2"), sample_4 as fn()),
+                ((Method::POST,    "/path2"), sample_5 as fn()),
+                ((Method::CONNECT, "/path2"), sample_6 as fn()),
+                ((Method::DELETE,  "/path2"), sample_7 as fn()),
+                ((Method::PATCH,   "/path2"), sample_8 as fn()),
+                ((Method::POST,    "/path3"), sample_5 as fn()),
+                ((Method::DELETE,  "/path3"), sample_7 as fn()),
+                ((Method::GET,     "/path3"), sample_4 as fn()),
+                ((Method::CONNECT, "/path3"), sample_3 as fn()),
+                ((Method::PATCH,   "/path3"), sample_1 as fn()),
+            ]);
+            for method_and_path in &CASES {
+                let Some(handler) = map.get(method_and_path) else {
+                    println!("NotFound");
+                    continue;
+                };
+                handler()
+            }
+        }
+    });
 }
 
-#[bench]
+#[bench]  // 10,738 ns/iter (+/- 143); 2022-11-16
 fn double_hash_without_tupple(b: &mut Bencher) {
     b.iter(|| {
-        let map = HashMap::from([
-            (
-                "/",
-                HashMap::from([
-                    (Method::GET,     sample_1 as fn()),
-                    (Method::POST,    sample_2 as fn()),
-                    (Method::CONNECT, sample_3 as fn()),
-                ])
-            ),
-            (
-                "/path1",
-                HashMap::from([
-                    (Method::GET,     sample_4 as fn()),
-                    (Method::POST,    sample_5 as fn()),
-                    (Method::CONNECT, sample_6 as fn()),
-                    (Method::DELETE,  sample_7 as fn()),
-                ])
-            ),
-            (
-                "/path2",
-                HashMap::from([
-                    (Method::GET,     sample_4 as fn()),
-                    (Method::POST,    sample_5 as fn()),
-                    (Method::CONNECT, sample_6 as fn()),
-                    (Method::DELETE,  sample_7 as fn()),
-                    (Method::PATCH,   sample_8 as fn()),
-                ])
-            ),
-            (
-                "/path3",
-                HashMap::from([
-                    (Method::POST,    sample_5 as fn()),
-                    (Method::DELETE,  sample_7 as fn()),
-                    (Method::GET,     sample_4 as fn()),
-                    (Method::CONNECT, sample_3 as fn()),
-                    (Method::PATCH,   sample_1 as fn()),
-                ])
-            ),
-        ]);
+        for _ in 0..10 {
+            let map = HashMap::from([
+                (
+                    "/",
+                    HashMap::from([
+                        (Method::GET,     sample_1 as fn()),
+                        (Method::POST,    sample_2 as fn()),
+                        (Method::CONNECT, sample_3 as fn()),
+                    ])
+                ),
+                (
+                    "/path1",
+                    HashMap::from([
+                        (Method::GET,     sample_4 as fn()),
+                        (Method::POST,    sample_5 as fn()),
+                        (Method::CONNECT, sample_6 as fn()),
+                        (Method::DELETE,  sample_7 as fn()),
+                    ])
+                ),
+                (
+                    "/path2",
+                    HashMap::from([
+                        (Method::GET,     sample_4 as fn()),
+                        (Method::POST,    sample_5 as fn()),
+                        (Method::CONNECT, sample_6 as fn()),
+                        (Method::DELETE,  sample_7 as fn()),
+                        (Method::PATCH,   sample_8 as fn()),
+                    ])
+                ),
+                (
+                    "/path3",
+                    HashMap::from([
+                        (Method::POST,    sample_5 as fn()),
+                        (Method::DELETE,  sample_7 as fn()),
+                        (Method::GET,     sample_4 as fn()),
+                        (Method::CONNECT, sample_3 as fn()),
+                        (Method::PATCH,   sample_1 as fn()),
+                    ])
+                ),
+            ]);
+            for (method, path) in &CASES {
+                let Some(handlers) = map.get(path) else {
+                    println!("NotFound");
+                    continue;
+                };
 
-        for (method, path) in &cases {
-            let Some(handlers) = map.get(path) else {
-                println!("NotFound");
-                continue;
-            };
-
-            let Some(handler) = handlers.get(method) else {
-                println!("NotFound");
-                continue;
-            };
-            handler()
+                let Some(handler) = handlers.get(method) else {
+                    println!("NotFound");
+                    continue;
+                };
+                handler()
+            }
         }
+        
     })
 }

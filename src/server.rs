@@ -14,10 +14,7 @@ use crate::{
 
 
 pub struct Server(
-    HashMap<
-        &'static str,
-        HashMap<Method, fn(Request) -> Response>,
-    >,
+    HashMap<(Method, &'static str), fn(Request) -> Response>
 ); impl Server {
     pub fn setup() -> Self {
         Self(HashMap::new())
@@ -34,10 +31,7 @@ pub struct Server(
             println!("requested: {:?} {}", method, path);
 
             let mut response = 'res: {
-                let Some(handlers) = self.0.get(path) else {
-                    break 'res Response::NotFound()
-                };
-                let Some(handler) = handlers.get(&method) else {
+                let Some(handler) = self.0.get(&(method, path)) else {
                     break 'res Response::NotFound()
                 };
                 handler(request)
@@ -47,39 +41,23 @@ pub struct Server(
         }
         Ok(())
     }
-
     #[allow(non_snake_case)]
-    pub fn GET(&mut self,
-        path:    &'static str,
-        handler: fn(Request) -> Response,
-    ) -> &mut Self {
-        // assert!(path.starts_with("/"));
-        self.0
-            .entry(path)
-            .and_modify(|map|
-                // assert_eq!(None,
-                    {map.insert(Method::GET, handler);}//,
-                // "handler for `GET {}` is already resistered", path)
-            ).or_insert(
-                HashMap::from([(Method::GET, handler)])
-            );
-        self
+    pub fn GET(&mut self, path: &'static str, handler: fn(Request) -> Response) -> &mut Self {
+        self.resister_handler(Method::GET, path, handler)
     }
     #[allow(non_snake_case)]
-    pub fn POST(&mut self,
-        path:    &'static str,
+    pub fn POST(&mut self, path: &'static str, handler: fn(Request) -> Response) -> &mut Self {
+        self.resister_handler(Method::POST, path, handler)
+    }
+
+    fn resister_handler(&mut self,
+        method: Method,
+        path:   &'static str,
         handler: fn(Request) -> Response,
     ) -> &mut Self {
-        assert!(path.starts_with("/"));
-        self.0
-            .entry(path)
-            .and_modify(|map|
-                // assert_eq!(None,
-                    {map.insert(Method::POST, handler);}//,
-                // "handler for `POST {}` is already resistered", path)
-            ).or_insert(
-                HashMap::from([(Method::GET, handler)])
-            );
+        assert!(path.starts_with("/"), "Endpoint path {path} doesn't start with '/' !");
+        let duplication = self.0.insert((method, path), handler);
+        assert!(duplication.is_none(), "handler for 'GET {path}' is already resistered !");
         self
     }
 }
