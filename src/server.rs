@@ -8,7 +8,7 @@ use crate::{
     request::{Method, Request},
     response::Response,
     components::{
-        consts::BUF_SIZE,
+        consts::{BUF_SIZE, ENB},
     }
 };
 
@@ -23,7 +23,7 @@ pub struct Server(
         let listener = TcpListener::bind(address)?;
         for stream in listener.incoming() {
             let mut stream = stream?;
-            let mut buffer = [0; BUF_SIZE];
+            let mut buffer = [ENB; BUF_SIZE];
 
             stream.read(&mut buffer)?;
             let (path, method, request) = parse_stream(&buffer)?;
@@ -74,27 +74,30 @@ fn parse_stream(buffer: &[u8; BUF_SIZE]) -> ServerResult<(&str, Method, Request)
             if buffer[pos]   == b'\r'  
             && buffer[pos+1] == b'\n' {
                 if pos == 0 {
-                    return Err(Response::BadRequest())//"HTTP request starts with '\\r'"
+                    return Err(Response::BadRequest("HTTP request starts with '\\r'"))
                 }
                 end_of_reqest_status = pos - 1;
                 break
             }
         }
         if end_of_reqest_status == BUF_SIZE {
-            return Err(Response::BadRequest())//"HTTP request doesn't contain any valid request status".into()))
+            return Err(Response::BadRequest("HTTP request doesn't contain any valid request status"))
         }
         &buffer[..=end_of_reqest_status]
     };
-
     let mut split = request_status.split(|b| *b == b' ');
     let method = match split.next().expect("no method found in request") {
         b"GET"  => Method::GET,
         b"POST" => Method::POST,
-        _ => return Err(Response::BadRequest())//"HTTP request doesn't contain any valid method"
+        _ => return Err(Response::BadRequest("HTTP request doesn't contain any valid method"))
     };
     let path = std::str::from_utf8(
         split.next().expect("no request path found in request")
     ).expect("failed to get path from buffer");
+
+
+    
+
 
     Ok((
         path,

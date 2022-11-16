@@ -10,12 +10,12 @@ pub type ServerResult<T> = std::result::Result<T, Response>;
 
 impl From<std::io::Error> for Response {
     fn from(value: std::io::Error) -> Self {
-        Self::InternalServerError()
+        Self::InternalServerError(value.to_string())
     }
 }
 impl From<serde_json::Error> for Response {
     fn from(value: serde_json::Error) -> Self {
-        Self::InternalServerError()
+        Self::InternalServerError(value.to_string())
     }
 } 
 

@@ -20,6 +20,11 @@ pub(crate) enum Status {
     NotImplemented      = 501,
 }
 
+// trait ResponseBody {}
+// impl ResponseBody for JSON {}
+// impl ResponseBody for Text {}
+
+
 impl Response {
     pub(crate) fn write_to_stream(mut self, stream: &mut TcpStream) -> std::io::Result<usize> {
         match self.status {
@@ -28,13 +33,24 @@ impl Response {
                     stream.write(b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n")?;
                     json.write_body(stream)
                 } else {
-                    stream.write(b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n")
+                    stream.write(b"HTTP/1.1 200 OK\r\n")
                 }
             },
-            Status::BadRequest =>          stream.write(b"HTTP/1.1 400 BadRequest\r\n"),
-            Status::NotFound =>            stream.write(b"HTTP/1.1 404 NotFound\r\n"),
-            Status::InternalServerError => stream.write(b"HTTP/1.1 500 InternalServerError\r\n"),
-            Status::NotImplemented =>      stream.write(b"HTTP/1.1 501 NotImplemented\r\n"),
+
+            Status::BadRequest => {
+                stream.write(b"HTTP/1.1 400 BadRequest\r\nContent-Type: application/json\r\n\r\n")?;
+                self.body.unwrap().write_body(stream)
+            },
+            Status::InternalServerError => {
+                stream.write(b"HTTP/1.1 500 InternalServerError\r\nContent-Type: application/json\r\n\r\n")?;
+                self.body.unwrap().write_body(stream)
+            },
+            Status::NotImplemented => {
+                stream.write(b"HTTP/1.1 501 NotImplemented\r\nContent-Type: application/json\r\n\r\n")?;
+                self.body.unwrap().write_body(stream)
+            },
+
+            Status::NotFound => stream.write(b"HTTP/1.1 404 NotFound\r\n"),
         }
     }
 
@@ -55,27 +71,27 @@ impl Response {
         }
     }
     #[allow(non_snake_case)]
-    pub fn BadRequest() -> Self {
+    pub fn BadRequest<Msg: ToString>(msg: Msg) -> Self {
         Self {
             status:  Status::BadRequest,
             // headers: vec![],
-            body:    None,
+            body:    Some(JSON::from_string_unchecked(msg.to_string())),
         }
     }
     #[allow(non_snake_case)]
-    pub fn InternalServerError() -> Self {
+    pub fn InternalServerError<Msg: ToString>(msg: Msg) -> Self {
         Self {
             status:  Status::InternalServerError,
             // headers: vec![],
-            body:    None,
+            body:    Some(JSON::from_string_unchecked(msg.to_string())),
         }
     }
     #[allow(non_snake_case)]
-    pub fn NotImplemented() -> Self {
+    pub fn NotImplemented<Msg: ToString>(msg: Msg) -> Self {
         Self {
             status:  Status::NotImplemented,
             // headers: vec![],
-            body:    None,
+            body:    Some(JSON::from_string_unchecked(msg.to_string())),
         }
     }
 }

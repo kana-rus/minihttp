@@ -23,7 +23,7 @@ fn show_user_info(_req: Request) -> ServerResult<Response> {
 }
 fn post_new_user(req: Request) -> ServerResult<Response> {
     let Some(new_user) = req.get_body::<User>()? else {
-        return Err(Response::BadRequest())
+        return Err(Response::BadRequest("request 'POST /' has to have user json as its request body"))
     };
 
     // handle DB ...
