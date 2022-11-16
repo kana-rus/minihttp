@@ -1,33 +1,51 @@
-use crate::{components::headers::HeaderOfRes, JSON};
+use std::{net::TcpStream, io::Write};
 
-pub struct Response<'b> {
-    status:  Status,
+use crate::{
+    // components::headers::HeaderOfRes,
+    JSON,
+};
+
+#[derive(Debug)]
+pub struct Response {
+    pub(crate) status:  Status,
     // headers: Vec<HeaderOfRes>,
-    body:    Option<JSON<'b>>,
+    body:    Option<JSON>,
+}
+#[derive(Debug)]
+pub(crate) enum Status {
+    OK                  = 200,
+    BadRequest          = 400,
+    NotFound            = 404,
+    InternalServerError = 500,
+    NotImplemented      = 501,
 }
 
-enum Status {
-    OK       = 200,
-    NotFound = 404,
-}
-
-impl<'b> Response<'b> {
-    pub(crate) fn into_byte_vec(&mut self) -> Vec<u8> {
+impl Response {
+    pub(crate) fn write_to_stream(mut self, stream: &mut TcpStream) -> std::io::Result<usize> {
         match self.status {
             Status::OK => {
                 if let Some(json) = self.body.take() {
-                    [
-                        b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n".to_vec(),
-                        json.0.to_vec()
-                    ].concat()
+                    stream.write(b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n")?;
+                    json.write_body(stream)
                 } else {
-                    b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n".to_vec()
+                    stream.write(b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n")
                 }
             },
-            Status::NotFound => b"HTTP/1.1 404 NotFound\r\n".to_vec(),
+            Status::BadRequest =>          stream.write(b"HTTP/1.1 400 BadRequest\r\n"),
+            Status::NotFound =>            stream.write(b"HTTP/1.1 404 NotFound\r\n"),
+            Status::InternalServerError => stream.write(b"HTTP/1.1 500 InternalServerError\r\n"),
+            Status::NotImplemented =>      stream.write(b"HTTP/1.1 501 NotImplemented\r\n"),
         }
     }
 
+    #[allow(non_snake_case)]
+    pub fn OK(body: JSON) -> Self {
+        Self {
+            status:  Status::OK,
+            // headers: vec![],
+            body: Some(body),
+        }
+    }
     #[allow(non_snake_case)]
     pub fn NotFound() -> Self {
         Self {
@@ -37,11 +55,27 @@ impl<'b> Response<'b> {
         }
     }
     #[allow(non_snake_case)]
-    pub fn OK(body: JSON<'b>) -> Self {
+    pub fn BadRequest() -> Self {
         Self {
-            status:  Status::OK,
+            status:  Status::BadRequest,
             // headers: vec![],
-            body: Some(body),
+            body:    None,
+        }
+    }
+    #[allow(non_snake_case)]
+    pub fn InternalServerError() -> Self {
+        Self {
+            status:  Status::InternalServerError,
+            // headers: vec![],
+            body:    None,
+        }
+    }
+    #[allow(non_snake_case)]
+    pub fn NotImplemented() -> Self {
+        Self {
+            status:  Status::NotImplemented,
+            // headers: vec![],
+            body:    None,
         }
     }
 }
