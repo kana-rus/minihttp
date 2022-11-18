@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     net::TcpListener,
-    io::{Write, Read}, str::Split
+    io::{Write, Read},
 };
 use crate::{
     result::ServerResult,
@@ -28,14 +28,14 @@ pub struct Server(
             let mut stream = stream?;
             let mut buffer = [ENB; BUF_SIZE]; // String ::with_capacity(BUF_SIZE); // [ENB; BUF_SIZE];
 
-            stream.read(&mut buffer); // .read_to_string(&mut buffer)?;
+            stream.read(&mut buffer)?;
             let (method, path, request) = parse_stream(&mut buffer)?;
 
             println!("requested: {:?} {}", method, path);
 
             let response = 'res: {
                 let Some(handler) = self.0.get(&(method, path)) else {
-                    break 'res Response::NotFound()
+                    break 'res Response::NotFound(format!("handler for that request is not found"))
                 };
                 match handler(request) {
                     Ok(res)  => res,
@@ -43,11 +43,11 @@ pub struct Server(
                 }
             };
             // ======================================================================================
-            println!("about to respond: {:?}", response); 
-            response.write_to_stream(&mut stream) .map_err(|e| println!("{:?}", e)); // ?;
-            println!("fin: response.write_to_stream()");
-            stream.flush() .map_err(|e| println!("{:?}", e)); // ?;
-            println!("fin: stream.flush()");
+            // println!("about to respond: {:?}", response); 
+            response.write_to_stream(&mut stream)?;
+            // println!("fin: response.write_to_stream()");
+            stream.flush()?;
+            // println!("fin: stream.flush()");
             // ======================================================================================
         }
         Ok(())
@@ -88,14 +88,14 @@ fn parse_stream(
     let request_line = lines.next().ok_or_else(|| Response::BadRequest("empty request"))?;
     let (method, path) = parse_request_line(request_line)?;
 
-    let mut debug_count = 0; // ==================
+    // let mut debug_count = 0; // ==================
     while let Some(line) = lines.next() {
-        debug_count += 1;
-        println!("{debug_count}th loop");
+        // debug_count += 1;
+        // println!("{debug_count}th loop");
         if line.is_empty() {break}
         // in current version, DON'T handle request headers
     }
-    println!("leaved from {debug_count}-count loop"); // ==================
+    // println!("leaved from {debug_count}-count loop"); // ==================
 
     let request = Request {
         body: if let Some(request_body) = lines.next() {

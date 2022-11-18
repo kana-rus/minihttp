@@ -6,7 +6,6 @@ mod result;
 mod request;
 mod response;
 mod components;
-mod utils;
 
 
 pub use server::Server;

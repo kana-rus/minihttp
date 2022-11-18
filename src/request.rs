@@ -31,18 +31,4 @@ impl<'d> Request {
         let body = json.to_struct()?;
         Ok(Some(body))
     }
-
-    pub(crate) fn with_body_unchecked(body: &str) -> Self {
-        Self { body: Some(JSON::from_string_unchecked(body.to_owned())) }
-    }
 }
-
-// impl Request {
-//     pub fn get_body<T: Deserialize>(&'b mut self) -> ServerResult<Option<T>> {
-//         let Some(body) = self.body.take() else {
-//             return Ok(None);
-//         };
-//         let body = serde_json::from_slice::<T>(&body.0)?;
-//         Ok(Some(body))
-//     }
-// }

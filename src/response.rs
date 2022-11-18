@@ -1,15 +1,14 @@
 use std::{net::TcpStream, io::Write};
 
 use crate::{
-    // components::headers::HeaderOfRes,
-    JSON,
+    JSON, components::headers::AdditionalHeader,
 };
 
 #[derive(Debug)]
 pub struct Response {
-    pub(crate) status:  Status,
-    // headers: Vec<HeaderOfRes>,
-    body:      Option<JSON>,
+    status:  Status,
+    additinal_headers: [AdditionalHeader; 2],
+    body:    Option<JSON>,
 }
 #[derive(Debug)]
 pub(crate) enum Status {
@@ -20,37 +19,25 @@ pub(crate) enum Status {
     NotImplemented      = 501,
 }
 
-// trait ResponseBody {}
-// impl ResponseBody for JSON {}
-// impl ResponseBody for Text {}
-
-
 impl Response {
-    pub(crate) fn write_to_stream(mut self, stream: &mut TcpStream) -> std::io::Result<usize> {
-        match self.status {
-            Status::OK => {
-                if let Some(json) = self.body.take() {
-                    stream.write(b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n")?;
-                    stream.write(json.as_bytes())
-                } else {
-                    stream.write(b"HTTP/1.1 200 OK\r\n")
+    pub(crate) fn write_to_stream(self, stream: &mut TcpStream) -> std::io::Result<usize> {
+        match &self.status {
+            other => {
+                stream.write(
+                    match other {
+                        Status::OK                  => b"HTTP/1.1 200 OK\r\nContent-Type: application/json; charset=utf-8\r\nConnection: Keep-Alive\r\nKeep-Alive: timeout=5\r\n",
+                        Status::BadRequest          => b"HTTP/1.1 400 BadRequest\r\nContent-Type: text/plain; charset=utf-8\r\nConnection: Keep-Alive\r\nKeep-Alive: timeout=5\r\n",
+                        Status::InternalServerError => b"HTTP/1.1 500 InternalServerError\r\nContent-Type: text/plain; charset=utf-8\r\nConnection: Keep-Alive\r\nKeep-Alive: timeout=5\r\n",
+                        Status::NotFound            => b"HTTP/1.1 404 NotFound\r\nContent-Type: text/plain; charset=utf-8\r\nConnection: Keep-Alive\r\nKeep-Alive: timeout=5\r\n",
+                        Status::NotImplemented      => b"HTTP/1.1 501 NotImplemented\r\nContent-Type: text/plain; charset=utf-8\r\nConnection: Keep-Alive\r\nKeep-Alive: timeout=5\r\n",
+                    }
+                )?;
+                for header in self.additinal_headers {
+                    header.write_to_stream(stream)?;
                 }
-            },
-
-            Status::BadRequest => {
-                stream.write(b"HTTP/1.1 400 BadRequest\r\nContent-Type: application/json\r\n\r\n")?;
+                stream.write(b"\r\n")?;
                 stream.write(self.body.unwrap().as_bytes())
             },
-            Status::InternalServerError => {
-                stream.write(b"HTTP/1.1 500 InternalServerError\r\nContent-Type: application/json\r\n\r\n")?;
-                stream.write(self.body.unwrap().as_bytes())
-            },
-            Status::NotImplemented => {
-                stream.write(b"HTTP/1.1 501 NotImplemented\r\nContent-Type: application/json\r\n\r\n")?;
-                stream.write(self.body.unwrap().as_bytes())
-            },
-
-            Status::NotFound => stream.write(b"HTTP/1.1 404 NotFound\r\n"),
         }
     }
 
@@ -58,40 +45,59 @@ impl Response {
     pub fn OK(body: JSON) -> Self {
         Self {
             status:  Status::OK,
-            // headers: vec![],
+            additinal_headers: [
+                AdditionalHeader::ContentLength(body.content_length()),
+                AdditionalHeader::Date,
+            ],
             body: Some(body),
         }
     }
     #[allow(non_snake_case)]
-    pub fn NotFound() -> Self {
+    pub fn NotFound<Msg: ToString>(msg: Msg) -> Self {
+        let msg = msg.to_string();
         Self {
-            status:  Status::NotFound,
-            // headers: vec![],
-            body:    None,
+            status: Status::NotFound,
+            additinal_headers: [
+                AdditionalHeader::ContentLength(msg.len()),
+                AdditionalHeader::Date,
+            ],
+            body: Some(JSON::from_string_unchecked(msg)),
         }
     }
     #[allow(non_snake_case)]
     pub fn BadRequest<Msg: ToString>(msg: Msg) -> Self {
+        let msg = msg.to_string();
         Self {
             status:  Status::BadRequest,
-            // headers: vec![],
-            body:    Some(JSON::from_string_unchecked(msg.to_string())),
+            additinal_headers: [
+                AdditionalHeader::ContentLength(msg.len()),
+                AdditionalHeader::Date,
+            ],
+            body: Some(JSON::from_string_unchecked(msg)),
         }
     }
     #[allow(non_snake_case)]
     pub fn InternalServerError<Msg: ToString>(msg: Msg) -> Self {
+        let msg = msg.to_string();
         Self {
             status:  Status::InternalServerError,
-            // headers: vec![],
-            body:    Some(JSON::from_string_unchecked(msg.to_string())),
+            additinal_headers: [
+                AdditionalHeader::ContentLength(msg.len()),
+                AdditionalHeader::Date,
+            ],
+            body: Some(JSON::from_string_unchecked(msg)),
         }
     }
     #[allow(non_snake_case)]
     pub fn NotImplemented<Msg: ToString>(msg: Msg) -> Self {
+        let msg = msg.to_string();
         Self {
             status:  Status::NotImplemented,
-            // headers: vec![],
-            body:    Some(JSON::from_string_unchecked(msg.to_string())),
+            additinal_headers: [
+                AdditionalHeader::ContentLength(msg.len()),
+                AdditionalHeader::Date,
+            ],
+            body: Some(JSON::from_string_unchecked(msg)),
         }
     }
 }
