@@ -9,7 +9,7 @@ use crate::{
 pub struct Response {
     pub(crate) status:  Status,
     // headers: Vec<HeaderOfRes>,
-    body:    Option<JSON>,
+    body:      Option<JSON>,
 }
 #[derive(Debug)]
 pub(crate) enum Status {
@@ -31,7 +31,7 @@ impl Response {
             Status::OK => {
                 if let Some(json) = self.body.take() {
                     stream.write(b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n")?;
-                    json.write_body(stream)
+                    stream.write(json.as_bytes())
                 } else {
                     stream.write(b"HTTP/1.1 200 OK\r\n")
                 }
@@ -39,15 +39,15 @@ impl Response {
 
             Status::BadRequest => {
                 stream.write(b"HTTP/1.1 400 BadRequest\r\nContent-Type: application/json\r\n\r\n")?;
-                self.body.unwrap().write_body(stream)
+                stream.write(self.body.unwrap().as_bytes())
             },
             Status::InternalServerError => {
                 stream.write(b"HTTP/1.1 500 InternalServerError\r\nContent-Type: application/json\r\n\r\n")?;
-                self.body.unwrap().write_body(stream)
+                stream.write(self.body.unwrap().as_bytes())
             },
             Status::NotImplemented => {
                 stream.write(b"HTTP/1.1 501 NotImplemented\r\nContent-Type: application/json\r\n\r\n")?;
-                self.body.unwrap().write_body(stream)
+                stream.write(self.body.unwrap().as_bytes())
             },
 
             Status::NotFound => stream.write(b"HTTP/1.1 404 NotFound\r\n"),

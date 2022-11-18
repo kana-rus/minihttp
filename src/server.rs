@@ -1,15 +1,18 @@
 use std::{
     collections::HashMap,
     net::TcpListener,
-    io::{Write, Read}
+    io::{Write, Read}, str::Split
 };
 use crate::{
     result::ServerResult,
     request::{Method, Request},
     response::Response,
     components::{
-        consts::{BUF_SIZE, ENB},
-    }
+        consts::{
+            BUF_SIZE,
+            ENB
+        },
+    }, JSON
 };
 
 
@@ -23,10 +26,10 @@ pub struct Server(
         let listener = TcpListener::bind(address)?;
         for stream in listener.incoming() {
             let mut stream = stream?;
-            let mut buffer = [ENB; BUF_SIZE];
+            let mut buffer = [ENB; BUF_SIZE]; // String ::with_capacity(BUF_SIZE); // [ENB; BUF_SIZE];
 
-            stream.read(&mut buffer)?;
-            let (path, method, request) = parse_stream(&buffer)?;
+            stream.read(&mut buffer); // .read_to_string(&mut buffer)?;
+            let (method, path, request) = parse_stream(&mut buffer)?;
 
             println!("requested: {:?} {}", method, path);
 
@@ -39,8 +42,13 @@ pub struct Server(
                     Err(res) => res,
                 }
             };
-            response.write_to_stream(&mut stream)?;
-            stream.flush()?
+            // ======================================================================================
+            println!("about to respond: {:?}", response); 
+            response.write_to_stream(&mut stream) .map_err(|e| println!("{:?}", e)); // ?;
+            println!("fin: response.write_to_stream()");
+            stream.flush() .map_err(|e| println!("{:?}", e)); // ?;
+            println!("fin: stream.flush()");
+            // ======================================================================================
         }
         Ok(())
     }
@@ -54,8 +62,8 @@ pub struct Server(
     }
 
     fn resister_handler(&mut self,
-        method: Method,
-        path:   &'static str,
+        method:  Method,
+        path:    &'static str,
         handler: fn(Request) -> ServerResult<Response>,
     ) -> &mut Self {
         assert!(path.starts_with("/"), "endpoint path '{path}' doesn't start with '/' !");
@@ -67,44 +75,44 @@ pub struct Server(
 }
 
 
-fn parse_stream(buffer: &[u8; BUF_SIZE]) -> ServerResult<(&str, Method, Request)> {
-    let request_status = {
-        let mut end_of_reqest_status = BUF_SIZE;
-        for pos in 0..BUF_SIZE {
-            if buffer[pos]   == b'\r'  
-            && buffer[pos+1] == b'\n' {
-                if pos == 0 {
-                    return Err(Response::BadRequest("HTTP request starts with '\\r'"))
-                }
-                end_of_reqest_status = pos - 1;
-                break
-            }
-        }
-        if end_of_reqest_status == BUF_SIZE {
-            return Err(Response::BadRequest("HTTP request doesn't contain any valid request status"))
-        }
-        &buffer[..=end_of_reqest_status]
+fn parse_stream(
+    buffer: &[u8; BUF_SIZE]
+    // buffer: &mut String
+) -> ServerResult<(Method, &str, Request)> {
+    // buffer.shrink_to_fit();
+    // let mut lines = buffer.split("\r\n"); // .lines();
+    let mut lines = std::str::from_utf8(buffer)?
+        .trim_end() // trim *" " made by `ENB`: b' ' in original buffer ( &[u8] )
+        .lines();
+
+    let request_line = lines.next().ok_or_else(|| Response::BadRequest("empty request"))?;
+    let (method, path) = parse_request_line(request_line)?;
+
+    let mut debug_count = 0; // ==================
+    while let Some(line) = lines.next() {
+        debug_count += 1;
+        println!("{debug_count}th loop");
+        if line.is_empty() {break}
+        // in current version, DON'T handle request headers
+    }
+    println!("leaved from {debug_count}-count loop"); // ==================
+
+    let request = Request {
+        body: if let Some(request_body) = lines.next() {
+            Some(JSON::from_string_unchecked(request_body.to_owned()))} else {None}
     };
-    let mut split = request_status.split(|b| *b == b' ');
-    let method = match split.next().expect("no method found in request") {
-        b"GET"  => Method::GET,
-        b"POST" => Method::POST,
-        _ => return Err(Response::BadRequest("HTTP request doesn't contain any valid method"))
-    };
-    let path = std::str::from_utf8(
-        split.next().expect("no request path found in request")
-    ).expect("failed to get path from buffer");
 
+    Ok((method, path, request))
+}
 
-    
-
-
-    Ok((
-        path,
-        method,
-        Request {
-            // headers: vec![],
-            body: None,
-        }
-    ))
+fn parse_request_line(line: &str) -> ServerResult<(Method, &str)> {
+    if line.is_empty() {
+        return Err(Response::BadRequest("can't find request status line"))
+    }
+    let (method, path) = line
+        .strip_suffix(" HTTP/1.1")
+        .ok_or_else(|| Response::NotImplemented("I can't handle protocols other than `HTTP/1.1`"))?
+        .split_once(' ')
+        .ok_or_else(|| Response::BadRequest("invalid request line format"))?;
+    Ok((Method::parse(method)?, path))
 }
