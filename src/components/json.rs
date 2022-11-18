@@ -4,7 +4,7 @@ use crate::Context;
 
 
 #[derive(Debug)]
-pub struct JSON(String);
+pub struct JSON(pub(crate) String);
 impl<'d> JSON {
     pub fn from_struct<S: Serialize>(value: &S) -> Context<Self> {
         Ok(Self(
@@ -23,9 +23,9 @@ impl<'d> JSON {
     pub(crate) fn from_string_unchecked(string: String) -> Self {
         Self(string)
     }
-    pub(crate) fn as_bytes(&self) -> &[u8] {
-        self.0.as_bytes()
-    }
+    // pub(crate) fn as_bytes(&self) -> &[u8] {
+    //     self.0.as_bytes()
+    // }
     pub(crate) fn content_length(&self) -> usize {
         self.0.len()
     }

@@ -1,14 +1,17 @@
 use std::{net::TcpStream, io::Write};
 
+use chrono::Utc;
+
 use crate::{
-    JSON, components::headers::AdditionalHeader, Context,
+    JSON, Context,
 };
 
 #[derive(Debug)]
 pub struct Response {
     status:  Status,
-    additinal_headers: [AdditionalHeader; 2],
-    body:    Option<JSON>,
+    // additinal_headers: [AdditionalHeader; 2],
+    content_length: usize,
+    body:    JSON,
 }
 #[derive(Debug)]
 pub(crate) enum Status {
@@ -32,11 +35,13 @@ impl Response {
                         Status::NotImplemented      => b"HTTP/1.1 501 NotImplemented\r\nContent-Type: text/plain; charset=utf-8\r\nConnection: Keep-Alive\r\nKeep-Alive: timeout=5\r\n",
                     }
                 )?;
-                for header in self.additinal_headers {
-                    header.write_to_stream(stream)?;
-                }
-                stream.write(b"\r\n")?;
-                stream.write(self.body.unwrap().as_bytes())
+                stream.write(format!(
+                    "Content-Length: {}\r\nDate: {}\r\n\r\n{}",
+                    self.content_length,
+                    Utc::now().to_rfc2822(),
+                    
+                    self.body.0
+                ).as_bytes())
             },
         }
     }
@@ -45,11 +50,8 @@ impl Response {
     pub fn OK(body: JSON) -> Context<Self> {
         Ok(Self {
             status:  Status::OK,
-            additinal_headers: [
-                AdditionalHeader::ContentLength(body.content_length()),
-                AdditionalHeader::Date,
-            ],
-            body: Some(body),
+            content_length: body.content_length(),
+            body: body,
         })
     }
     #[allow(non_snake_case)]
@@ -57,11 +59,8 @@ impl Response {
         let msg = msg.to_string();
         Err(Self {
             status: Status::NotFound,
-            additinal_headers: [
-                AdditionalHeader::ContentLength(msg.len()),
-                AdditionalHeader::Date,
-            ],
-            body: Some(JSON::from_string_unchecked(msg)),
+            content_length: msg.len(),
+            body: JSON::from_string_unchecked(msg),
         })
     }
     #[allow(non_snake_case)]
@@ -69,11 +68,8 @@ impl Response {
         let msg = msg.to_string();
         Err(Self {
             status:  Status::BadRequest,
-            additinal_headers: [
-                AdditionalHeader::ContentLength(msg.len()),
-                AdditionalHeader::Date,
-            ],
-            body: Some(JSON::from_string_unchecked(msg)),
+            content_length: msg.len(),
+            body: JSON::from_string_unchecked(msg),
         })
     }
     #[allow(non_snake_case)]
@@ -81,11 +77,8 @@ impl Response {
         let msg = msg.to_string();
         Err(Self {
             status:  Status::InternalServerError,
-            additinal_headers: [
-                AdditionalHeader::ContentLength(msg.len()),
-                AdditionalHeader::Date,
-            ],
-            body: Some(JSON::from_string_unchecked(msg)),
+            content_length: msg.len(),
+            body: JSON::from_string_unchecked(msg),
         })
     }
     #[allow(non_snake_case)]
@@ -93,11 +86,8 @@ impl Response {
         let msg = msg.to_string();
         Err(Self {
             status:  Status::NotImplemented,
-            additinal_headers: [
-                AdditionalHeader::ContentLength(msg.len()),
-                AdditionalHeader::Date,
-            ],
-            body: Some(JSON::from_string_unchecked(msg)),
+            content_length: msg.len(),
+            body: JSON::from_string_unchecked(msg),
         })
     }
 }
