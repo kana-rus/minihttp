@@ -1,7 +1,7 @@
 use std::{net::TcpStream, io::Write};
 
 use crate::{
-    JSON, components::headers::AdditionalHeader,
+    JSON, components::headers::AdditionalHeader, Context,
 };
 
 #[derive(Debug)]
@@ -42,62 +42,62 @@ impl Response {
     }
 
     #[allow(non_snake_case)]
-    pub fn OK(body: JSON) -> Self {
-        Self {
+    pub fn OK(body: JSON) -> Context<Self> {
+        Ok(Self {
             status:  Status::OK,
             additinal_headers: [
                 AdditionalHeader::ContentLength(body.content_length()),
                 AdditionalHeader::Date,
             ],
             body: Some(body),
-        }
+        })
     }
     #[allow(non_snake_case)]
-    pub fn NotFound<Msg: ToString>(msg: Msg) -> Self {
+    pub fn NotFound<Msg: ToString, T>(msg: Msg) -> Context<T> {
         let msg = msg.to_string();
-        Self {
+        Err(Self {
             status: Status::NotFound,
             additinal_headers: [
                 AdditionalHeader::ContentLength(msg.len()),
                 AdditionalHeader::Date,
             ],
             body: Some(JSON::from_string_unchecked(msg)),
-        }
+        })
     }
     #[allow(non_snake_case)]
-    pub fn BadRequest<Msg: ToString>(msg: Msg) -> Self {
+    pub fn BadRequest<Msg: ToString, T>(msg: Msg) -> Context<T> {
         let msg = msg.to_string();
-        Self {
+        Err(Self {
             status:  Status::BadRequest,
             additinal_headers: [
                 AdditionalHeader::ContentLength(msg.len()),
                 AdditionalHeader::Date,
             ],
             body: Some(JSON::from_string_unchecked(msg)),
-        }
+        })
     }
     #[allow(non_snake_case)]
-    pub fn InternalServerError<Msg: ToString>(msg: Msg) -> Self {
+    pub fn InternalServerError<Msg: ToString, T>(msg: Msg) -> Context<T> {
         let msg = msg.to_string();
-        Self {
+        Err(Self {
             status:  Status::InternalServerError,
             additinal_headers: [
                 AdditionalHeader::ContentLength(msg.len()),
                 AdditionalHeader::Date,
             ],
             body: Some(JSON::from_string_unchecked(msg)),
-        }
+        })
     }
     #[allow(non_snake_case)]
-    pub fn NotImplemented<Msg: ToString>(msg: Msg) -> Self {
+    pub fn NotImplemented<Msg: ToString, T>(msg: Msg) -> Context<T> {
         let msg = msg.to_string();
-        Self {
+        Err(Self {
             status:  Status::NotImplemented,
             additinal_headers: [
                 AdditionalHeader::ContentLength(msg.len()),
                 AdditionalHeader::Date,
             ],
             body: Some(JSON::from_string_unchecked(msg)),
-        }
+        })
     }
 }

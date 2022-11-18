@@ -1,4 +1,4 @@
-use minihttp::{Request, Response, JSON, Server, ServerResult};
+use minihttp::{Request, Response, JSON, Server, Context};
 use serde::{Serialize, Deserialize};
 
 
@@ -8,29 +8,29 @@ struct User {
     name: String,
 }
 
-fn main() -> ServerResult<()> {
+fn main() -> Context<()> {
     Server::setup()
         .GET("/", show_user_info)
         .POST("/", post_new_user)
-        .serve("127.0.0.1:3000") 
+        .serve_on(":3000") 
 }
 
-fn show_user_info(_req: Request) -> ServerResult<Response> {
-    let user = User {id: 1, name: "first user".into()};
-    Ok(Response::OK(
+fn show_user_info(_req: Request) -> Context<Response> {
+    let user = User {id: 1, name: "first user".to_owned()};
+    Response::OK(
         JSON::from_struct(&user)?
-    ))
+    )
 }
-fn post_new_user(req: Request) -> ServerResult<Response> {
+fn post_new_user(req: Request) -> Context<Response> {
     let Some(new_user) = req.get_body::<User>()? else {
-        return Err(Response::BadRequest("request 'POST /' has to have user json as its request body"))
+        return Response::BadRequest("request 'POST /' has to have user json as its request body")
     };
 
     // handle DB ...
 
     let created = new_user;
 
-    Ok(Response::OK(
+    Response::OK(
         JSON::from_struct(&created)?
-    ))
+    )
 }

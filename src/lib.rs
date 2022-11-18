@@ -9,7 +9,7 @@ mod components;
 
 
 pub use server::Server;
-pub use result::ServerResult;
+pub use result::Context;
 pub use request::Request;
 pub use response::Response;
 pub use components::{
